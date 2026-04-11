@@ -1,0 +1,13 @@
+.query-input {
+    max-width: 1000px;
+    width: 75%;
+}
+
+.wayne-query-input {
+    border: 1px solid black;
+    background-color: #dfdbdb;
+}
+
+.wayne-query-input::placeholder {
+    color: #491111;
+}

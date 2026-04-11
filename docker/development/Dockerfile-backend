@@ -1,0 +1,14 @@
+FROM python:3.13-slim
+ARG PYDEVD_VER
+
+WORKDIR /app
+
+COPY ./requirements.txt ./requirements-test.txt ./
+
+RUN pip install --no-cache-dir --upgrade pydevd-pycharm==${PYDEVD_VER}
+
+RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
+RUN pip install --no-cache-dir --upgrade -r ./requirements-test.txt
+
+CMD ["/bin/sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 80 --proxy-headers --forwarded-allow-ips=\"*\" --workers 1 --reload"]
+

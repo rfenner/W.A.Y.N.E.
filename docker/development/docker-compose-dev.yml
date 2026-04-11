@@ -1,0 +1,38 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: wayne_nginx
+    depends_on:
+      - wayne_frontend
+      - wayne_backend
+    ports:
+      - "18080:80"
+    volumes:
+      - ${TOP}/docker/development/nginx.conf:/etc/nginx/nginx.conf
+  qdrant-dev:
+    image: qdrant/qdrant:latest
+    container_name: wayne_qdrant_dev
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage_dev:/qdrant/storage
+  wayne_frontend:
+    image: wayne_frontend_development:latest
+    container_name: wayne_frontend
+    volumes:
+      - ${TOP}/server/frontend:/app
+      - /app/node_modules/
+  wayne_backend:
+    image: wayne_backend_development:latest
+    container_name: wayne_backend_dev
+    environment:
+      QDRANT_URL: "http://wayne_qdrant_dev:6333"
+    ports:
+      - "18081:80"
+    volumes:
+      - ${TOP}/server/backend:/app
+      - ${TOP}/server/frontend/public:/app/static
+      - ${REPOSITORIES_DIR}:/repositories
+    depends_on:
+      - qdrant-dev

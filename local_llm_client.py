@@ -3,6 +3,8 @@ import json
 import time
 from typing import Optional
 
+import debug.debugger
+
 class LocalLLMClient:
     """
     Client for local LLM inference via Ollama.
