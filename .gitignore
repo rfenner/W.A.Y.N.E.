@@ -20,3 +20,4 @@ qdrant_storage/
 /server/tests/backend/test-log/
 docker/development/qdrant_storage_dev
 server/backend/opt
+server/backend/.repopilot

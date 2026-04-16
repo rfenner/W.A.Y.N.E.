@@ -22,6 +22,6 @@ class WSConnectionManager:
                 return
 
     @classmethod
-    async def broadcast(cls, message:str):
+    def broadcast(cls, message:str):
         for client in cls._active_connections:
-            await client.send_text(message)
+            client.send_output(message)

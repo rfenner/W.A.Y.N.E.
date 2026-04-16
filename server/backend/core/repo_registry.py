@@ -72,7 +72,7 @@ class RepositoryRegistry:
                 if exception is not None:
                     logging.exception(exception)
                 else:
-                    await WSConnectionManager.broadcast(
+                    WSConnectionManager.broadcast(
                         f"I've completed indexing repository {cls._repositories[repo_name].name}")
 
                 del cls._indexing[repo_name]
@@ -84,7 +84,7 @@ class RepositoryRegistry:
         cls._indexing[repo.name_key] = asyncio.create_task(repo.index_repository())
 
     @classmethod
-    async def get_indexing_status(cls, client: 'Client'):
+    def get_indexing_status(cls, client: 'Client'):
         """
         send the indexing status to the client
         """
@@ -113,16 +113,16 @@ class RepositoryRegistry:
             response += "I encountered an error while indexing these repositories:\n" + failed
 
         if response != "":
-            await client.send_text("I encountered an error while indexing these repositories:\n" + failed)
+            client.send_output("I encountered an error while indexing these repositories:\n" + failed)
 
     @classmethod
-    async def list_repositories(cls, client: 'Client'):
+    def list_repositories(cls, client: 'Client'):
         """
         Sends a list of repositories to the client minus ones that are indexing
         """
         response = 'I know about the following repositories:\n'
         indexing = False
-        for repo in cls._repositories:
+        for repo in cls._repositories.values():
             if repo.name_key in cls._indexing:
                 indexing = True
                 continue
@@ -133,4 +133,4 @@ class RepositoryRegistry:
         if indexing:
             response += "I'm still indexing some repositories so they are not listed.\nI'll let you know when their done."
 
-        await client.send_text(response)
+        client.send_output(response)

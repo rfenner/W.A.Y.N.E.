@@ -5,7 +5,7 @@ import subprocess
 if TYPE_CHECKING:
     from core.client import Client
 
-from tools import repository_ignorer, code_search, file_io, diff_writer
+from tools import code_search, file_io, diff_writer
 from tools.github_helper import clone_github_repo
 from core.indexer_ import CodeIndexer
 from llm.local_llm_client import LocalLLMClient
@@ -24,7 +24,7 @@ class Executor:
         self._edit_history = []  # stack of (file_path, original_content, instruction)
         
         self.tools = {
-            "scan_repo": repo_scanner.scan_repo,
+            #"scan_repo": repo_scanner.scan_repo,
             "search_code": code_search.search_code,
             "read_file": file_io.read_file,
             "write_diff": diff_writer.write_diff,
@@ -89,10 +89,10 @@ class Executor:
         """Store LLM analysis result."""
         return analysis
 
-    async def _get_edit_engine(self):
+    def _get_edit_engine(self):
         editor = self.client.editor
         if editor is None:
-            await self.cleitn.send_text()
+            self.client.send_output()
         return editor
 
     def _edit_file_tool(self, file_path: str, instruction: str, target: str = None) -> Dict[str, Any]:

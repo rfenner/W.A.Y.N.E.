@@ -1,9 +1,8 @@
 import os
-from typing import Dict, List, Any
 
 import pathspec
 
-from core.directory_file_manager import FileObjectIgnorer, DirectoryFileManager
+from core.directory_file_manager import FileObjectIgnorer
 
 # Common junk directories and files to ignore
 IGNORE_DIRS = [

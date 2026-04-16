@@ -21,7 +21,7 @@ class Planner:
         self.llm_client = LocalLLMClient()
         self.router = QueryRouter()
 
-    async def create_plan(self, user_query: str) -> List[Dict[str, Any]]:
+    def create_plan(self, user_query: str) -> List[Dict[str, Any]]:
         """
         Create a plan for the user query.
         
@@ -37,18 +37,18 @@ class Planner:
         # Check for GitHub repo in query
         github_url = get_repo_url_from_query(user_query)
         if github_url:
-            return await self._plan_github_analysis(user_query, github_url)
+            return self._plan_github_analysis(user_query, github_url)
         
         query_type = self.router.classify(user_query)
         print(f"[PLANNER] Query type: {query_type.value}")
         
         # METADATA: Handle locally
         if query_type == QueryType.METADATA:
-            return await self._handle_metadata_query(user_query)
+            return self._handle_metadata_query(user_query)
         
         # EDIT: Generate edit plan
         if query_type == QueryType.EDIT:
-            return await self._handle_edit_query(user_query)
+            return self._handle_edit_query(user_query)
             
         # UNDO: Revert last edit
         if query_type == QueryType.UNDO:
@@ -56,7 +56,7 @@ class Planner:
         
         # FIX: Self-healing loop
         if query_type == QueryType.FIX:
-            return await self._handle_fix_query(user_query)
+            return self._handle_fix_query(user_query)
 
         # INDEX_DOCS: Document ingestion
         if query_type == QueryType.INDEX_DOCS:
@@ -93,23 +93,23 @@ class Planner:
             }
         ]
 
-    async def _get_repo(self)->Repository|None:
+    def _get_repo(self)->Repository|None:
         repo = self.client.repo
         if repo is None:
-            await self.client.send_text("I'm not surer which repository you'd like info for.")
-            await RepositoryRegistry.list_repositories(self.client)
+            self.client.send_output("I'm not surer which repository you'd like info for.")
+            RepositoryRegistry.list_repositories(self.client)
         return repo
     
-    async def _handle_metadata_query(self, query: str) -> List[Dict[str, Any]]:
+    def _handle_metadata_query(self, query: str) -> List[Dict[str, Any]]:
         """Answer metadata queries without LLM."""
 
-        repo = await self._get_repo()
+        repo = self._get_repo()
         if repo is None:
             return []
 
         files = repo.indexer.get_file_list()
 
-        await self.client.send_text("[PLANNER] Answering metadata query locally...")
+        self.client.send_output("[PLANNER] Answering metadata query locally...")
 
         if "how many" in query.lower() and "files" in query.lower():
             return [{
@@ -138,7 +138,7 @@ class Planner:
             "args": {"message": f"Found {len(files)} files in repository."}
         }]
     
-    async def _handle_edit_query(self, query: str) -> List[Dict[str, Any]]:
+    def _handle_edit_query(self, query: str) -> List[Dict[str, Any]]:
         """Handle edit queries by finding target file and generating edit plan."""
         import re
         
@@ -152,7 +152,7 @@ class Planner:
         if file_matches:
             file_path = file_matches[0]
         else:
-            repo = await self._get_repo()
+            repo = self._get_repo()
             if repo is None:
                 return []
             # Use retrieval to find relevant file
@@ -193,7 +193,7 @@ class Planner:
             "args": {}
         }]
     
-    async def _handle_fix_query(self, query: str) -> List[Dict[str, Any]]:
+    def _handle_fix_query(self, query: str) -> List[Dict[str, Any]]:
         """Handle fix/self-heal queries."""
         import re
         file_pattern = r'[\w\-_/]+\.(?:py|js|ts|go|rs|java|cpp|c)'
@@ -201,7 +201,7 @@ class Planner:
         file_path = file_matches[0] if file_matches else None
 
         if not file_path:
-            repo = await self._get_repo()
+            repo = self._get_repo()
             if repo is None:
                 return []
             results = repo.indexer.search(query, k=1)
@@ -231,9 +231,9 @@ class Planner:
             "args": {"folder_path": folder or "."}
         }]
 
-    async def _retrieve_context(self, query: str) -> List[Dict[str, Any]]:
+    def _retrieve_context(self, query: str) -> List[Dict[str, Any]]:
         """Retrieve top-3 relevant code chunks (reduced from 5 to make room for history)."""
-        repo = await self._get_repo()
+        repo = self._get_repo()
         if repo is None:
             return []
 
@@ -271,9 +271,9 @@ Keep your response clear, concise, and actionable.
         print("[PLANNER] Generating analysis...")
         full_response = ""
         for chunk in self.llm_client.generate_text_stream(prompt):
-            print(chunk, end="", flush=True)
+            self.client.send_output(chunk)
             full_response += chunk
-        print()  # New line after streaming
+        self.client.send_output("\n")  # New line after streaming
         
         return [{
             "tool_name": "llm_analysis",

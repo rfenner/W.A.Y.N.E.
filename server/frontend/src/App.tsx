@@ -2,7 +2,7 @@ import '@mantine/core/styles.css';
 import './App.css'
 
 import {Flex, MantineProvider, ScrollArea, Textarea} from "@mantine/core";
-import {useCallback, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {MagnifyingGlassIcon} from "@phosphor-icons/react";
 import {ReadyState} from "react-use-websocket";
 import useWebSocket from "react-use-websocket";
@@ -12,16 +12,16 @@ import DOMPurify from "dompurify";
 function App() {
     const [messageHistory, setMessageHistory] = useState("");
     const [query, setQuery] = useState('');
-    const {sendMessage, lastMessage, readyState} = useWebSocket('ws://localhost:18080/ws')
+    const {sendMessage, readyState} = useWebSocket('ws://localhost:18080/ws', {
+        onMessage:(event) => {
+            setMessageHistory(c=>c+DOMPurify.sanitize(event.data))
+        }
+    })
 
     const sendQuery = useCallback((query:string) => {
         sendMessage(query)
         setQuery('');
     }, [sendMessage])
-
-    if(lastMessage != null) {
-        setMessageHistory(prev => prev.concat(DOMPurify.sanitize(lastMessage)));
-    }
 
     return (
         <>
@@ -51,16 +51,16 @@ function App() {
                         }}
                         resize={'vertical'}
                         placeholder={ReadyState.OPEN == readyState ? 'What can I answer for you?':'Connecting to agent'}
-                        onKeyUp={(e) => {
+                        onKeyDown={(e) => {
                             if (e.key == 'Enter' && e.ctrlKey) {
                                 sendQuery(query);
                                 e.preventDefault();
                                 e.stopPropagation();
                                 return
                             }
-                            setQuery((c: string) => c + e.key);
                         }
                         }
+                        onChange={(e) => {setQuery(e.target.value)}}
                         rightSection={<MagnifyingGlassIcon
                             color={'black'}
                             onClick={() => {
