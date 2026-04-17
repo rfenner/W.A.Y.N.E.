@@ -81,10 +81,11 @@ class DirectoryFileManager:
         self._file_list  = {}
         self._notifier = change_callback
 
-        self._watchdog = Observer()
-        local_watchdog = self._watchdog
-        weakref.finalize(self, DirectoryFileManager.cleanup_observers, local_watchdog)
-        self._watchdog.schedule(WayneFileSystemEventHandler(weakref.ref(self)), self._base_directory, recursive=True)
+        if change_callback is not None:
+            self._watchdog = Observer()
+            local_watchdog = self._watchdog
+            weakref.finalize(self, DirectoryFileManager.cleanup_observers, local_watchdog)
+            self._watchdog.schedule(WayneFileSystemEventHandler(weakref.ref(self)), self._base_directory, recursive=True)
 
     @staticmethod
     def cleanup_observers(watchdog):
@@ -131,7 +132,7 @@ class DirectoryFileManager:
         if self._notifier is not None:
             self._notifier()
 
-        if not self._watchdog.is_alive():
+        if self._notifier and not self._watchdog.is_alive():
             self._watchdog.start()
 
     def file_update(self, file:str,mtime:int|None=None,removed:bool=False)->None:
