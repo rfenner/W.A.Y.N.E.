@@ -1,21 +1,16 @@
 import asyncio
 import datetime
-from time import sleep
 
 import pytest
-
-import config
-
 
 class TestRepoRegistry:
     @pytest.mark.asyncio
     async def test_load_repositories(self, monkeypatch):
         base_path= '/app/tests/test_data/repo_registry_test'
         # patch the var first
-        monkeypatch.setattr(config, "REPOSITORIES_DIR", base_path)
         # now import the repository registry so it uses it
         from core.repo_registry import RepositoryRegistry
-        RepositoryRegistry.load_repositories()
+        RepositoryRegistry.load_repositories(base_path)
 
         assert len(RepositoryRegistry._repositories) == 1
         assert len(RepositoryRegistry._indexing) == 1

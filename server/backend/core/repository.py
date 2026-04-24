@@ -75,6 +75,10 @@ class Repository:
     def indexer(self):
         return self._indexer
 
+    @property
+    def repository_files(self):
+        return self._file_manager.file_list
+
     def _get_canonical_path(self) -> str:
         """Resolve a repo path to its canonical form for stable hashing."""
         return os.path.realpath(os.path.abspath(os.path.expanduser(self._repo_path)))

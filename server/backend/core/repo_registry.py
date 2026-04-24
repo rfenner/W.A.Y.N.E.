@@ -10,12 +10,11 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-from config import REPOSITORIES_DIR
 from core.connection_manager import WSConnectionManager
 from core.repository import Repository
 
 if TYPE_CHECKING:
-    from core.client import Client
+    from core.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +28,12 @@ class RepositoryRegistry:
     _indexing = {}
 
     @classmethod
-    def load_repositories(cls):
+    def load_repositories(cls, repositories_path:str):
         """
         Scans the repertoires directory and loads any it finds.
         The loading is done asynchronously.
         """
-        with os.scandir(REPOSITORIES_DIR) as entries:
+        with os.scandir(repositories_path) as entries:
             for entry in entries:
                 if not entry.is_dir():
                     continue
@@ -84,7 +83,7 @@ class RepositoryRegistry:
         cls._indexing[repo.name_key] = asyncio.create_task(repo.index_repository())
 
     @classmethod
-    def get_indexing_status(cls, client: 'Client'):
+    def get_indexing_status(cls, client: 'User'):
         """
         send the indexing status to the client
         """
@@ -116,7 +115,7 @@ class RepositoryRegistry:
             client.send_output("I encountered an error while indexing these repositories:\n" + failed)
 
     @classmethod
-    def list_repositories(cls, client: 'Client'):
+    def list_repositories(cls, client: 'User'):
         """
         Sends a list of repositories to the client minus ones that are indexing
         """

@@ -19,7 +19,7 @@ class TestRepositoryIgnorer:
     def test_init_no_ignore(self):
         ignorer = RepositoryIgnorer(self.base_path)
         assert ignorer._repo_path == self.base_path
-        assert ignorer._checker is None
+        assert isinstance(ignorer._checker, PathSpec)
 
         assert ignorer.file_ignored(f'{self.base_path}/test.txt') is False
 

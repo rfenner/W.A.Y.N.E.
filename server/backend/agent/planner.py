@@ -7,7 +7,7 @@ from core.query_router import QueryRouter, QueryType
 from tools.github_helper import get_repo_url_from_query
 
 if TYPE_CHECKING:
-    from core.client import Client
+    from core.user import User
 
 class Planner:
     """
@@ -16,7 +16,7 @@ class Planner:
     Supports GitHub repo analysis.
     """
     
-    def __init__(self, client:'Client'):
+    def __init__(self, client:'User'):
         self.client = client
         self.llm_client = LocalLLMClient()
         self.router = QueryRouter()
@@ -96,7 +96,7 @@ class Planner:
     def _get_repo(self)->Repository|None:
         repo = self.client.repo
         if repo is None:
-            self.client.send_output("I'm not surer which repository you'd like info for.")
+            self.client.send_output("I'm not sure which repository you'd like info for.")
             RepositoryRegistry.list_repositories(self.client)
         return repo
     

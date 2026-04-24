@@ -1,8 +1,49 @@
 import re
-import os
 import requests
 from typing import List, Dict, Any
-from tools.repository_ignorer import scan_repo
+
+from pydantic import BaseModel, Field
+
+from core.agent_tool import AgentTool
+from core.repo_registry import RepositoryRegistry
+
+
+class CodeSearchToolModel(BaseModel):
+    """
+    Searches a repository for a query in the code of a repository.
+    """
+    repo_name:str = Field(description="The Repositories Name")
+    query:str = Field(description="The query to search for in the code")
+    is_reg_ex:bool = Field(description="Whether or not the query is reg ex pattern")
+
+class CodeSearchTool(AgentTool):
+    def tools_definition(self) -> dict:
+        return CodeSearchToolModel.model_json_schema()
+
+    def run_tool(self, repo_name:str, query:str, is_reg_ex:bool) -> list[dict]:
+        repo = RepositoryRegistry.get_repository(repo_name.lower())
+        if repo is None:
+            return []
+        file_list = repo.repository_files
+
+        results = []
+        for file in file_list:
+            with open(file, "r", encoding="utf-8") as f:
+                for i, line in enumerate(f):
+                    found = False
+                    if is_reg_ex:
+                        if re.search(query, line):
+                            found = True
+                    else:
+                        if query in line:
+                            found = True
+                    if found:
+                        results.append({
+                            "file_path": file,
+                            "line_number": i + 1,
+                            "line": line,
+                        })
+        return results
 
 def search_github(repo_url: str, query: str) -> List[Dict[str, Any]]:
     """Searches a remote repo using GitHub Search API."""
@@ -46,8 +87,8 @@ def search_code(repo_path: str, query: str, regex: bool = False) -> List[Dict[st
         return search_github(repo_path, query)
 
     results = []
-    file_tree = scan_repo(repo_path)
-
+    #file_tree = scan_repo(repo_path)
+    file_tree = []
     def search_in_files(tree: Dict[str, Any]):
         for name, item in tree.items():
             if isinstance(item, dict) and "type" in item and item["type"] == "file":

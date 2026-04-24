@@ -1,16 +1,18 @@
 from starlette.websockets import WebSocket
 
+from core.ws_client import WSClient
+
 
 class WSConnectionManager:
     _active_connections = []
 
     @classmethod
-    async def connect(cls,ws:WebSocket)->'Client':
+    async def connect(cls,ws:WebSocket)->'WSClient':
         # we put the import here to prevent circular references
         from core.client import Client
 
         await ws.accept()
-        client = Client(ws)
+        client = WSClient(ws)
         cls._active_connections.append(client)
         return client
 

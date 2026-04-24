@@ -3,7 +3,7 @@ import os
 import subprocess
 
 if TYPE_CHECKING:
-    from core.client import Client
+    from core.user import User
 
 from tools import code_search, file_io, diff_writer
 from tools.github_helper import clone_github_repo
@@ -17,7 +17,7 @@ class Executor:
     Executor: runs tool calls from the planner.
     """
     
-    def __init__(self, client:'Client', repo_path: str = "."):
+    def __init__(self, client:'User', repo_path: str = "."):
         self.client = client
         self.repo_path = repo_path
         self._pending_edit = None  # Store pending edit for confirmation
@@ -92,7 +92,7 @@ class Executor:
     def _get_edit_engine(self):
         editor = self.client.editor
         if editor is None:
-            self.client.send_output()
+            self.client.send_output('Not editing a file currently')
         return editor
 
     def _edit_file_tool(self, file_path: str, instruction: str, target: str = None) -> Dict[str, Any]:

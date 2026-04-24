@@ -103,6 +103,16 @@ class ToolsManager:
         self._load_tools('/app/tools')
         self._load_tools(tools_path)
 
+    def add_tool(self, tool_name:str, tool:AgentTool):
+        if not isinstance(tool, AgentTool):
+            raise RuntimeError(f'Tool {tool_name} is not an AgentTool')
+        if tool_name in self._tools:
+            raise RuntimeError(f'Tool {tool_name} already exists')
+        self._tools[tool_name] = {
+            'instance':tool,
+            'tool_def':tool.tools_definition()
+        }
+
     @property
     def get_tool_definitions(self):
         tool_defs = []
@@ -110,10 +120,8 @@ class ToolsManager:
             tool_defs.append(tools['tool_def'])
         return tool_defs
 
-    def is_tool(self, tool_name:str):
-        return tool_name in self._tools
-
-    def run_tool(self, tool_name:str, **args):
+    def run_tool(self, tool_name:str, arguments)->str:
         if tool_name not in self._tools:
-            raise KeyError(tool_name)
-        return self.tools[tool_name]['instance'](**args)
+            return 'Unknown tool'
+        return self._tools[tool_name]['instance'].run_tool(**arguments)
+

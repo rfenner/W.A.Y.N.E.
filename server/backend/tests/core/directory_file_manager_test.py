@@ -9,8 +9,6 @@ from watchdog.observers import Observer
 
 from core.directory_file_manager import DirectoryFileManager, FileObjectIgnorer
 
-import debug.debugger
-
 class IgnoreFileTester(FileObjectIgnorer):
     def file_ignored(self, file_path: str) -> bool:
         if 'ignore_me' in file_path:

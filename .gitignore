@@ -17,7 +17,7 @@ https:/
 RepoPilot Context History Design.md
 help_output.txt
 qdrant_storage/
-/server/tests/backend/test-log/
+/server/backend/tests/test-log/
 docker/development/qdrant_storage_dev
 server/backend/opt
 server/backend/.repopilot

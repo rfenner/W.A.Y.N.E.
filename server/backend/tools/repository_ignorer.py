@@ -54,7 +54,7 @@ class RepositoryIgnorer(FileObjectIgnorer):
         if os.path.exists(ignore_file):
             with open(ignore_file) as f:
                 lines += f.readlines()
-            self._checker = pathspec.PathSpec.from_lines('gitignore', lines)
+        self._checker = pathspec.PathSpec.from_lines('gitignore', lines)
 
     def file_ignored(self, file_path: str) -> bool:
         if self._checker is None:

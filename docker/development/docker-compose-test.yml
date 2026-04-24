@@ -8,14 +8,14 @@ services:
   wayne_test:
     image: wayne_backend_development:latest
     container_name: wayne_backend_test
-    command: /bin/sh -c "pytest --show-capture=all ${TEST_DIR} ${TEST_TO_RUN} | tee ${TEST_DIR}/test-log/results.log"
+    command: /bin/sh -c "pytest --show-capture=all ${TEST_DIR} | tee ${TEST_DIR}/test-log/results.log"
     environment:
       QDRANT_URL: "http://wayne_qdrant_test:6333"
       PYTHONPATH: "/app/"
+      OLLAMA_RUNNING: ${OLLAMA_RUNNING}
     ports:
       - "18081:80"
     volumes:
       - ${TOP}/server/backend:/app
-      - ${TOP}/server/tests/backend/:/app/tests
     depends_on:
       - qdrant-test
