@@ -26,3 +26,6 @@ class WSClient(Client):
     def send_output(self, msg: str):
         self._queue.put_nowait(msg)
 
+    async def receive_input(self):
+        return await self.ws.receive_text()
+

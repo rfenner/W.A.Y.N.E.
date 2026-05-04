@@ -19,17 +19,18 @@ class TestUser:
 
         assert user.client == self.client
         assert user.repo is None
-        assert isinstance(user.chat_history, ChatHistory)
+        assert user.chat_history == []
         assert user.editor is None
         assert user._repo_agents == {}
+        assert isinstance(user.llm_client, LocalLLMClient)
         user.send_output('test')
         assert self.client.output == 'test'
         assert isinstance(user._planner, Planner)
         assert isinstance(user._executor, Executor)
         assert isinstance(user._verifier, Verifier)
-        assert isinstance(user._llm_client, LocalLLMClient)
 
-    def test_receive_query(self):
+    @pytest.mark.asyncio
+    async def test_receive_query(self):
         user = User(self.client)
 
 

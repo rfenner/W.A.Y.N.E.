@@ -1,12 +1,15 @@
+import json
 import re
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from core.agent_tool import AgentTool
+from core.agent_tool import AgentTool, AgentToolResponse
 from core.repo_registry import RepositoryRegistry
 
+if TYPE_CHECKING:
+    from core.user import User
 
 class CodeSearchToolModel(BaseModel):
     """
@@ -17,13 +20,20 @@ class CodeSearchToolModel(BaseModel):
     is_reg_ex:bool = Field(description="Whether or not the query is reg ex pattern")
 
 class CodeSearchTool(AgentTool):
-    def tools_definition(self) -> dict:
+    """
+    Searches a repository for a query in the code of a repository.
+    """
+    @classmethod
+    def _generate_parameters(cls) -> dict:
         return CodeSearchToolModel.model_json_schema()
 
-    def run_tool(self, repo_name:str, query:str, is_reg_ex:bool) -> list[dict]:
+    # noinspection PyMethodOverriding
+    def run_tool(self, user:'User', repo_name:str, query:str, is_reg_ex:bool, **kwargs) -> AgentToolResponse:
         repo = RepositoryRegistry.get_repository(repo_name.lower())
         if repo is None:
-            return []
+            return AgentToolResponse(
+                message='[]'
+            )
         file_list = repo.repository_files
 
         results = []
@@ -43,7 +53,9 @@ class CodeSearchTool(AgentTool):
                             "line_number": i + 1,
                             "line": line,
                         })
-        return results
+        return AgentToolResponse(
+            message=json.dumps(results),
+        )
 
 def search_github(repo_url: str, query: str) -> List[Dict[str, Any]]:
     """Searches a remote repo using GitHub Search API."""
@@ -78,34 +90,3 @@ def search_github(repo_url: str, query: str) -> List[Dict[str, Any]]:
     except Exception as e:
         return [{"error": str(e)}]
 
-def search_code(repo_path: str, query: str, regex: bool = False) -> List[Dict[str, Any]]:
-    """
-    Searches for a query in the code of a repository.
-    """
-    if repo_path.startswith("http"):
-        # Regex is not supported by GitHub API, fallback to simple query
-        return search_github(repo_path, query)
-
-    results = []
-    #file_tree = scan_repo(repo_path)
-    file_tree = []
-    def search_in_files(tree: Dict[str, Any]):
-        for name, item in tree.items():
-            if isinstance(item, dict) and "type" in item and item["type"] == "file":
-                file_path = item["path"] # Local absolute path
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        for i, line in enumerate(f):
-                            if regex:
-                                if re.search(query, line):
-                                    results.append({"file_path": item["path"], "line_number": i + 1, "line": line.strip()})
-                            else:
-                                if query in line:
-                                    results.append({"file_path": item["path"], "line_number": i + 1, "line": line.strip()})
-                except Exception:
-                    pass
-            elif isinstance(item, dict):
-                search_in_files(item)
-
-    search_in_files(file_tree)
-    return results

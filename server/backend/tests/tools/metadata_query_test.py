@@ -1,0 +1,2 @@
+class TestMetadataQueryTool:
+    pass

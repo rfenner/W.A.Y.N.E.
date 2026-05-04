@@ -26,3 +26,7 @@ class Client(ABC):
     def send_output(self, msg: str):
         pass
 
+    @abstractmethod
+    async def receive_input(self):
+        pass
+

@@ -25,7 +25,7 @@ class Executor:
         
         self.tools = {
             #"scan_repo": repo_scanner.scan_repo,
-            "search_code": code_search.search_code,
+            #"search_code": code_search.search_code,
             "read_file": file_io.read_file,
             "write_diff": diff_writer.write_diff,
             

@@ -2,19 +2,13 @@ from core.agent_tool import AgentTool
 
 
 class BadTool(AgentTool):
-    def tools_definition(self) -> dict:
+    @classmethod
+    def _generate_parameters(cls) -> dict:
         return {
-            'function': {
-                'name': 'OneTool',
-                'description': 'Test One description',
-                'parameters': {
-                    'type': 'object',
-                    'properties': {
-                        'test': {'type': 'string', 'description': 'Test description'},
-                    }
-                }
+            'type': 'object',
+            'properties': {
+                'test': {'type': 'string', 'description': 'Test description'},
             }
-
         }
 
     def run_tool(self, *args, **kwargs) -> dict:

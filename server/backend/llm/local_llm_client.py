@@ -5,7 +5,8 @@ from config import OLLAMA_MODEL, OLLAMA_BASE_URL
 from core.tools_manager import ToolsManager
 
 if TYPE_CHECKING:
-    from core.client import Client
+    from core.user import User
+
 
 class LocalLLMClient:
     """
@@ -101,67 +102,64 @@ class LocalLLMClient:
         except Exception as e:
             yield f"[ERROR] LLM inference failed: {str(e)}"
 
-    def chat(self, client:'Client', messages:list, temperature:float=0.7, stream:bool=False):
+    def chat(self, user:'User', query:str, temperature:float=0.7, stream:bool=False):
         try:
+            client = user.client
+            messages = user.chat_history
+            messages.append({'role':'user', 'content':query})
+
             kwargs = {
                 "model": self.model_name,
                 "messages": messages,
                 "options": {"temperature": temperature},
                 'stream':stream
             }
-            done = False
-            while not done:
-                response = self.client.chat(**kwargs)
+            response = self.client.chat(**kwargs)
 
-                thinking = ''
-                content = ''
-                tools = []
-                in_thinking = False
-                content_sent = False
+            thinking = ''
+            content = ''
+            tools = []
+            in_thinking = False
+            content_sent = False
 
-                if stream:
-                    for chunk in response:
-                        done = chunk.done
-                        if chunk.message.thinking:
-                            thinking += chunk.message.thinking
-                            if content_sent:
-                                client.send_output("\n")
-                                content_sent = False
-                            if not in_thinking:
-                                in_thinking = True
-                                client.send_output("[THINKING]: ")
-                            client.send_output(chunk.message.thinking.strip())
-                            if chunk.message.content:
-                                client.send_output("\n")
-                        if chunk.message.content:
-                            in_thinking = False
-                            content_sent = True
-                            content += chunk.message.content
-                            client.send_output(chunk.message.content)
-                        if chunk.message.tool_calls:
-                            tools.extend(chunk.message.tool_calls)
-                else:
-                    done = response.done
-                    if response.message.thinking:
-                        thinking += response.message.thinking
-                        client.send_output(f"[THINKING]: {response.message.thinking}")
-                    if response.message.content:
-                        if response.message.thinking:
+            if stream:
+                for chunk in response:
+                    done = chunk.done
+                    if chunk.message.thinking:
+                        thinking += chunk.message.thinking
+                        if content_sent:
                             client.send_output("\n")
-                        content += response.message.content
-                        client.send_output(response.message.content)
-                    if response.message.tool_calls:
-                        tools.extend(response.message.tool_calls)
+                            content_sent = False
+                        if not in_thinking:
+                            in_thinking = True
+                            client.send_output("[THINKING]: ")
+                        client.send_output(chunk.message.thinking.strip())
+                        if chunk.message.content:
+                            client.send_output("\n")
+                    if chunk.message.content:
+                        in_thinking = False
+                        content_sent = True
+                        content += chunk.message.content
+                        client.send_output(chunk.message.content)
+                    if chunk.message.tool_calls:
+                        tools.extend(chunk.message.tool_calls)
+            else:
+                done = response.done
+                if response.message.thinking:
+                    thinking += response.message.thinking
+                    client.send_output(f"[THINKING]: {response.message.thinking}")
+                if response.message.content:
+                    if response.message.thinking:
+                        client.send_output("\n")
+                    content += response.message.content
+                    client.send_output(response.message.content)
+                if response.message.tool_calls:
+                    tools.extend(response.message.tool_calls)
 
-                if thinking or content or tools:
-                    messages.append({'role':'user', 'thinking':thinking, 'content':content, 'tool_calls':tools})
+            if thinking or content or tools:
+                messages.append({'role':'user', 'thinking':thinking, 'content':content, 'tool_calls':tools})
 
-                if not tools:
-                    continue
-
-                for tool in tools:
-                    result = self._tools.run_tool(tool.function.name, tool.function.arguments)
-                    messages.append({'role':'tool', 'tool_name':tool.function.name, 'content':result})
+            return tools
 
         except Exception as e:
             return f"[ERROR] Chat inference failed: {str(e)}"
