@@ -7,7 +7,8 @@ import pytest_asyncio
 
 from config import OLLAMA_BASE_URL, OLLAMA_MODEL
 from core.repo_registry import RepositoryRegistry
-from tests.conftest import ollama_required
+from core.user import User
+from tests.conftest import ollama_required, ClientTestOutput
 from tools.code_search import CodeSearchTool
 
 @ollama_required
@@ -22,6 +23,7 @@ class TestCodeSearchTool:
     @pytest.mark.asyncio
     async def test_tools_runs(self):
         start = time()
+        user = User(ClientTestOutput())
         while 'repo' in RepositoryRegistry._indexing:
             sleep(.5)
             if time() - start > 3:
@@ -30,26 +32,25 @@ class TestCodeSearchTool:
         ollama_client = ollama.Client(host=OLLAMA_BASE_URL)
 
         messages = [{
-            "role":"user", 'content': "find the file that test_method is defined in repository named repo"
+            "role":"user", 'content': "find the file and line number that test_method is defined in for the repository named repo"
         }]
-        tool = CodeSearchTool()
-        response = ollama_client.chat(messages=messages, model=OLLAMA_MODEL, tools=[tool.run_tool])
+        tool = CodeSearchTool('test')
+        response = ollama_client.chat(messages=messages, model=OLLAMA_MODEL, tools=[tool.tools_definition(tool.name)])
         assert response.message.tool_calls is not None
-        tool_result = tool.run_tool(**response.message.tool_calls[0].function.arguments)
+        tool_result = tool.run_tool(user, **response.message.tool_calls[0].function.arguments)
 
         expected_file_path = '/app/tests/test_data/repo_registry_test/repo/test_python.py'
-        assert len(tool_result) == 1
-        assert tool_result[0]['file_path'] == expected_file_path
-        assert tool_result[0]['line'] == 'def test_method():\n'
-        assert tool_result[0]['line_number'] == 1
+        assert tool_result.message == '[{"file_path": "'+expected_file_path+'", "line_number": 1, "line": "def test_method():\\n"}]'
 
         messages.append({
             'role':'tool',
             'tool_name':'run_tool',
-            'content':json.dumps(tool_result[0])
+            'content':tool_result.message
         })
 
-        response = ollama_client.chat(messages=messages, model=OLLAMA_MODEL, tools=[tool.run_tool])
+        response = ollama_client.chat(messages=messages, model=OLLAMA_MODEL, tools=[tool.tools_definition(tool.name)],
+                                      options={'temperature':0.0})
         assert expected_file_path in response.message.content
-        assert 'line 1' in response.message.content
+        assert 'line number 1' in response.message.content
+        assert 'test_method' in response.message.content
 

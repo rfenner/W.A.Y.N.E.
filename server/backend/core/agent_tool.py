@@ -34,7 +34,7 @@ class AgentTool(ABC):
     """
 
     """Holds the arguments extracted from run_tool so llm arguments can be mapped to it"""
-    run_tool_arguments:list = []
+    _run_tool_arguments:dict[Any, list] = {}
 
     def __init__(self, name: str):
         self.name = name
@@ -54,9 +54,6 @@ class AgentTool(ABC):
         Class method so we don't have to instantiate it to get the def
         """
 
-        # extract the arguments for run_tool only extracted once
-        cls._extract_run_tool_arguments()
-
         if tool_name is None:
             tool_name = cls.__name__
 
@@ -74,10 +71,13 @@ class AgentTool(ABC):
         }
 
     @classmethod
-    def _extract_run_tool_arguments(cls):
+    def run_tool_arguments(cls):
         # only extract it once
-        if cls.run_tool_arguments:
-            return
+        arguments = cls._run_tool_arguments.get(cls)
+        if arguments:
+            return arguments
+
+        cls._run_tool_arguments[cls] = []
 
         signature = inspect.signature(cls.run_tool)
         for param in signature.parameters.values():
@@ -86,7 +86,10 @@ class AgentTool(ABC):
             if param.name == 'user' or param.name == 'self' or \
                 param.name == 'args' or param.name == 'kwargs':
                 continue
-            cls.run_tool_arguments.append(param.name)
+            cls._run_tool_arguments[cls].append(param.name)
+
+        return cls._run_tool_arguments[cls]
+
 
     @abstractmethod
     def run_tool(self, user: 'User', *args, **kwargs) -> AgentToolResponse:

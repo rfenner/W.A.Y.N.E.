@@ -35,12 +35,12 @@ class TestAgentTool:
         with pytest.raises(RuntimeError, match="AgentToolTestNoDoc: Has no class description."):
             AgentToolTestNoDoc.tools_definition()
 
-        assert len(AgentToolTestNoDoc.run_tool_arguments) == 0
+        assert len(AgentToolTestNoDoc.run_tool_arguments()) == 0
 
         # test no name passed
         tool_def = AgentToolTestDoc.tools_definition()
-        assert len(AgentToolTestNoDoc.run_tool_arguments) == 1
-        assert AgentToolTestNoDoc.run_tool_arguments[0] == 'test'
+        assert len(AgentToolTestDoc.run_tool_arguments()) == 1
+        assert AgentToolTestDoc.run_tool_arguments()[0] == 'test'
 
         assert 'function' in tool_def
         assert 'type' in tool_def

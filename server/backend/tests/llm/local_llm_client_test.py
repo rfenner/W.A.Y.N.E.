@@ -76,7 +76,7 @@ class TestLocalLLMClient:
             result = llm.generate_text(self.user, 'test', capture=False)
             assert result == ''
             # noinspection PyUnresolvedReferences
-            assert self.client.output == 'Testing'
+            assert self.user.client.output == 'Testing'
 
     def test_generate_text_no_stream_capture(self):
         with patch('llm.local_llm_client.ollama.Client') as mock_ollama:
@@ -128,7 +128,7 @@ class TestLocalLLMClient:
             result = llm.generate_text(self.user, 'test', stream=True)
             assert result == 'TestingTesting 2'
             # noinspection PyUnresolvedReferences
-            assert self.client.output == ''
+            assert self.user.client.output == ''
 
     def test_chat_exception(self):
         with patch('llm.local_llm_client.ollama.Client') as mock_ollama:
@@ -147,9 +147,9 @@ class TestLocalLLMClient:
             ), done=True)
 
             result = llm.chat(self.user, 'test')
-            assert result is None
+            assert result == []
             # noinspection PyUnresolvedReferences
-            assert self.client.output == '[THINKING]: Thinking 1\ntest'
+            assert self.user.client.output == '[THINKING]: Thinking 1\ntest'
 
     def test_chat_stream(self):
         with patch('llm.local_llm_client.ollama.Client') as mock_ollama:
@@ -165,9 +165,9 @@ class TestLocalLLMClient:
             ]
 
             result = llm.chat(self.user, 'test', stream=True)
-            assert result is None
+            assert result == []
             # noinspection PyUnresolvedReferences
-            assert self.client.output == 'testtest 2'
+            assert self.user.client.output == 'testtest 2'
 
     def test_chat_no_stream_tool_call(self):
         with patch('llm.local_llm_client.ollama.Client') as mock_ollama:
@@ -186,11 +186,19 @@ class TestLocalLLMClient:
             ]
 
             result = llm.chat(self.user, 'test')
-            assert result is None
+            assert len(result) == 1
+            assert result[0].function.name == 'llm_test_tool'
+            assert result[0].function.arguments['num'] == 1
             # noinspection PyUnresolvedReferences
-            assert self.client.output == 'testtest tool'
-            assert len(self.user.chat_history) == 4
-            assert self.user.chat_history[2] == {'content': 'test tool 1', 'role': 'tool', 'tool_name': 'llm_test_tool'}
+            assert len(self.user.chat_history) == 2
+            assert self.user.chat_history[0] == {'content': 'test', 'role': 'user'}
+            assert self.user.chat_history[1]['role'] == 'user'
+            assert self.user.chat_history[1]['content'] == 'test'
+            assert self.user.chat_history[1]['thinking'] == ''
+            assert len(self.user.chat_history[1]['tool_calls']) == 1
+            assert self.user.chat_history[1]['tool_calls'][0].function.name == 'llm_test_tool'
+            assert self.user.chat_history[1]['tool_calls'][0].function.arguments['num'] == 1
+
 
     def test_chat_stream_tool_call(self):
         with patch('llm.local_llm_client.ollama.Client') as mock_ollama:
@@ -202,9 +210,12 @@ class TestLocalLLMClient:
                         role='user', content='test 1'
                     )),
                     ChatResponse(message=Message(
+                        role='user', thinking='thinking'
+                    )),
+                    ChatResponse(message=Message(
                         role='user', content='test 2',
                         tool_calls=[Message.ToolCall(function=Message.ToolCall.Function(
-                            name='llm_test_tool', arguments={'num': 1}
+                            name='llm_test_tool', arguments={'num': 2}
                         ))]
                     ))
                 ],
@@ -216,8 +227,15 @@ class TestLocalLLMClient:
             ]
 
             result = llm.chat(self.user, 'test', stream=True)
-            assert result is None
+            assert len(result) == 1
+            assert result[0].function.name == 'llm_test_tool'
+            assert result[0].function.arguments['num'] == 2
             # noinspection PyUnresolvedReferences
-            assert self.client.output == 'test 1test 2test tool'
-            assert len(self.user.chat_history) == 4
-            assert self.user.chat_history[2] == {'content': 'test tool 1', 'role': 'tool', 'tool_name': 'llm_test_tool'}
+            assert len(self.user.chat_history) == 2
+            assert self.user.chat_history[0] == {'content': 'test', 'role': 'user'}
+            assert self.user.chat_history[1]['role'] == 'user'
+            assert self.user.chat_history[1]['content'] == 'test 1test 2'
+            assert self.user.chat_history[1]['thinking'] == 'thinking'
+            assert len(self.user.chat_history[1]['tool_calls']) == 1
+            assert self.user.chat_history[1]['tool_calls'][0].function.name == 'llm_test_tool'
+            assert self.user.chat_history[1]['tool_calls'][0].function.arguments['num'] == 2

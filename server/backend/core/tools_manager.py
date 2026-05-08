@@ -232,7 +232,7 @@ class ToolsManager:
         """
         Core of running an agent tool
         """
-        response = tool.run_tool(user, **self._fill_missing_parameters(tool.run_tool_arguments, arguments))
+        response = tool.run_tool(user, **self._fill_missing_parameters(tool.run_tool_arguments(), arguments))
 
         if response.go_interactive:
             if response.interactive_agent is None:

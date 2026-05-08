@@ -273,7 +273,7 @@ class TestToolsManager:
         # make sure the tools_definition for the class has run once
         # to set the run arguments
         ToolManagerAgentTestTool.tools_definition()
-        run_arguments = ToolManagerAgentTestTool.run_tool_arguments
+        run_arguments = ToolManagerAgentTestTool.run_tool_arguments()
         #test arguments is None
         arguments = ToolsManager._fill_missing_parameters(run_arguments, None)
         assert arguments == {'name':None}
