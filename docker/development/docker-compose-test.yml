@@ -17,5 +17,6 @@ services:
       - "18081:80"
     volumes:
       - ${TOP}/server/backend:/app
+      - ${TOP}/test_repositories:/repositories
     depends_on:
       - qdrant-test

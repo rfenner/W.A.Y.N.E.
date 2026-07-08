@@ -4,7 +4,7 @@ from config import REPOSITORIES_DIR
 from core.repo_registry import RepositoryRegistry, Repository
 from llm.local_llm_client import LocalLLMClient
 from core.query_router import QueryRouter, QueryType
-from tools.github_helper import get_repo_url_from_query
+#from tools.github_cloner import get_repo_url_from_query
 
 if TYPE_CHECKING:
     from core.user import User
@@ -35,7 +35,8 @@ class Planner:
         """
         
         # Check for GitHub repo in query
-        github_url = get_repo_url_from_query(user_query)
+        #github_url = get_repo_url_from_query(user_query)
+        github_url = None
         if github_url:
             return self._plan_github_analysis(user_query, github_url)
         
@@ -285,7 +286,8 @@ Keep your response clear, concise, and actionable.
     
     def _extract_tool_calls(self, query: str) -> List[Dict[str, Any]]:
         """Extract git_clone or direct tool calls."""
-        github_url = get_repo_url_from_query(query)
+        #github_url = get_repo_url_from_query(query)
+        github_url = None
         if github_url:
             return [{
                 "tool_name": "github_clone",

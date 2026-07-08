@@ -51,7 +51,7 @@ class TestLocalLLMClient:
             ollama_instance = mock_ollama.return_value
             ollama_instance.generate.return_value = Exception('Test Exception')
 
-            result = llm.generate_text(self.user, 'test', capture=False)
+            result = llm.generate_user_text(self.user, 'test', capture=False)
             assert result is None
             # noinspection PyUnresolvedReferences
             assert '[ERROR] LLM inference failed:' in self.user.client.output
@@ -62,7 +62,7 @@ class TestLocalLLMClient:
             ollama_instance = mock_ollama.return_value
             ollama_instance.generate.return_value = Exception('Test Exception')
 
-            result = llm.generate_text(self.user, 'test')
+            result = llm.generate_user_text(self.user, 'test')
             assert '[ERROR] LLM inference failed:' in result
 
     def test_generate_text_no_stream_no_capture(self):
@@ -73,7 +73,7 @@ class TestLocalLLMClient:
                 response='Testing'
             )
 
-            result = llm.generate_text(self.user, 'test', capture=False)
+            result = llm.generate_user_text(self.user, 'test', capture=False)
             assert result == ''
             # noinspection PyUnresolvedReferences
             assert self.user.client.output == 'Testing'
@@ -86,7 +86,7 @@ class TestLocalLLMClient:
                 response='Testing'
             )
 
-            result = llm.generate_text(self.user, 'test')
+            result = llm.generate_user_text(self.user, 'test')
             assert result == 'Testing'
 
     def test_generate_text_stream_no_capture(self):
@@ -105,7 +105,7 @@ class TestLocalLLMClient:
                 ),
             ]
 
-        result = llm.generate_text(self.user, 'test', stream=True, capture=False)
+        result = llm.generate_user_text(self.user, 'test', stream=True, capture=False)
         assert result == ''
         # noinspection PyUnresolvedReferences
         assert self.user.client.output == '[THINKING]: Thinking 1\nTesting 1\n[THINKING]: Thinking 2\nTesting 2'
@@ -125,7 +125,7 @@ class TestLocalLLMClient:
                 ),
             ]
 
-            result = llm.generate_text(self.user, 'test', stream=True)
+            result = llm.generate_user_text(self.user, 'test', stream=True)
             assert result == 'TestingTesting 2'
             # noinspection PyUnresolvedReferences
             assert self.user.client.output == ''

@@ -1,3 +1,4 @@
+
 import datetime
 import os
 import shutil
@@ -12,7 +13,7 @@ from config import QDRANT_URL, SPARSE_VECTOR_NAME
 from core.directory_file_manager import DirectoryFileManager
 from core.indexer_ import CodeIndexer
 from core.reranker import Reranker
-from tools.wayne_ignorer import WayneIgnorer
+from core.wayne_ignorer import WayneIgnorer
 
 
 class TestIndexer:
@@ -22,6 +23,14 @@ class TestIndexer:
         os.makedirs(self._repo_path)
         yield
         shutil.rmtree(self._repo_path)
+
+    def _mock_ollama_embeddings(self, ollama_client):
+        instance = ollama_client.return_value
+        mock_embedding = []
+        for i in range(0, 768):
+            mock_embedding.append(float(i))
+        instance.embeddings.return_value = {'embedding': mock_embedding}
+        return instance
 
     def test_init_no_cache(self) -> None:
         collection_name = 'test_collection'
@@ -106,11 +115,7 @@ class TestIndexer:
 
     def test_build_index_cache(self) -> None:
         with patch('core.indexer_.ollama_lib.Client') as ollama_client:
-            instance = ollama_client.return_value
-            mock_embedding = []
-            for i in range(0, 768):
-                mock_embedding.append(float(i))
-            instance.embeddings.return_value = {'embedding':mock_embedding}
+            self._mock_ollama_embeddings(ollama_client)
 
             collection_name = 'test_collection_index_cache'
 
@@ -127,6 +132,8 @@ class TestIndexer:
 
             cpp_file_path = f'{base_dir_path}/test_cpp.cpp'
             python_file_path = f'{base_dir_path}/test_python.py'
+            engineering_doc_path = f'{base_dir_path}/engineering_documentation_indexer.md'
+            large_engineering_doc_path = f'{base_dir_path}/engineering_documentation_chunking_strategy.md'
             # we set up a condition from one of the file to be in cache but wil an
             # older modified time so it's updated but not in the db so we can see it
             # added as well
@@ -138,7 +145,7 @@ class TestIndexer:
 
             indexer.build_index(file_list)
 
-            assert len(indexer._files_cache) == 2
+            assert len(indexer._files_cache) == 4
             assert indexer._files_cache == {
                 python_file_path:{
                     'path': python_file_path,
@@ -149,6 +156,16 @@ class TestIndexer:
                     'path': cpp_file_path,
                     'language': 'C++',
                     'modified': int(os.path.getmtime(cpp_file_path)),
+                },
+                engineering_doc_path:{
+                    'path': engineering_doc_path,
+                    'language': 'Markdown',
+                    'modified': int(os.path.getmtime(engineering_doc_path)),
+                },
+                large_engineering_doc_path:{
+                    'path': large_engineering_doc_path,
+                    'language': 'Markdown',
+                    'modified': int(os.path.getmtime(large_engineering_doc_path)),
                 }
             }
 
@@ -158,3 +175,159 @@ class TestIndexer:
 
             records, _ = qd_client.scroll(collection_name=collection_name, with_payload=True)
             print(records)
+
+    def test_build_index_sets_code_and_doc_chunk_types(self) -> None:
+        with patch('core.indexer_.ollama_lib.Client') as ollama_client:
+            self._mock_ollama_embeddings(ollama_client)
+
+            collection_name = 'test_collection_code_and_doc_chunk_types'
+            base_dir_path = '/app/tests/test_data/indexer_build_test'
+
+            python_file_path = f'{base_dir_path}/test_python.py'
+            engineering_doc_path = f'{base_dir_path}/engineering_documentation_indexer.md'
+            file_list = {
+                python_file_path: int(os.path.getmtime(python_file_path)),
+                engineering_doc_path: int(os.path.getmtime(engineering_doc_path)),
+            }
+
+            indexer = CodeIndexer(collection_name)
+            indexer.build_index(file_list)
+
+            qd_client = QdrantClient(url=QDRANT_URL)
+            records, _ = qd_client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                with_payload=True,
+            )
+
+            python_records = [
+                record for record in records
+                if record.payload['file_path'] == python_file_path
+            ]
+            doc_records = [
+                record for record in records
+                if record.payload['file_path'] == engineering_doc_path
+            ]
+
+            assert len(python_records) > 0
+            assert len(doc_records) > 0
+
+            assert {record.payload['type'] for record in python_records} == {'code'}
+            assert {record.payload['type'] for record in doc_records} == {'doc'}
+
+            assert {record.payload['language'] for record in python_records} == {'Python'}
+            assert {record.payload['language'] for record in doc_records} == {'Markdown'}
+
+    def test_engineering_markdown_chunks_preserve_heading_content_and_line_numbers(self) -> None:
+        with patch('core.indexer_.ollama_lib.Client') as ollama_client:
+            self._mock_ollama_embeddings(ollama_client)
+
+            collection_name = 'test_collection_engineering_markdown_chunks'
+            base_dir_path = '/app/tests/test_data/indexer_build_test'
+            engineering_doc_path = f'{base_dir_path}/engineering_documentation_indexer.md'
+            file_list = {
+                engineering_doc_path: int(os.path.getmtime(engineering_doc_path)),
+            }
+
+            indexer = CodeIndexer(collection_name)
+            indexer.build_index(file_list)
+
+            qd_client = QdrantClient(url=QDRANT_URL)
+            records, _ = qd_client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                with_payload=True,
+            )
+
+            doc_records = [
+                record for record in records
+                if record.payload['file_path'] == engineering_doc_path
+            ]
+
+            assert len(doc_records) > 0
+
+            contents = '\n'.join(record.payload['content'] for record in doc_records)
+            assert 'Simple Document Test' in contents
+            assert '## Section 1' in contents
+            assert '### Subsection 1.1' in contents
+            assert 'type `doc`' not in contents  # This is from the original documentation, but not in this test file
+
+            for record in doc_records:
+                assert record.payload['type'] == 'doc'
+                assert record.payload['start_line'] >= 1
+                assert record.payload['end_line'] >= record.payload['start_line']
+
+    def test_engineering_markdown_chunks_complex_structure(self) -> None:
+        with patch('core.indexer_.ollama_lib.Client') as ollama_client:
+            self._mock_ollama_embeddings(ollama_client)
+
+            collection_name = 'test_collection_engineering_markdown_chunks_complex'
+            base_dir_path = '/app/tests/test_data/indexer_build_test'
+            engineering_doc_path = f'{base_dir_path}/engineering_documentation_chunking_strategy.md'
+            file_list = {
+                engineering_doc_path: int(os.path.getmtime(engineering_doc_path)),
+            }
+
+            indexer = CodeIndexer(collection_name)
+            indexer.build_index(file_list)
+
+            qd_client = QdrantClient(url=QDRANT_URL)
+            records, _ = qd_client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                with_payload=True,
+            )
+
+            doc_records = [
+                record for record in records
+                if record.payload['file_path'] == engineering_doc_path
+            ]
+
+            assert len(doc_records) > 0
+
+            contents = '\n'.join(record.payload['content'] for record in doc_records)
+            assert 'Large Engineering Design' in contents
+            assert '## Overview' in contents
+            assert '## Requirements' in contents
+            assert '## Architecture' in contents
+            assert '## Chunking Strategy' in contents
+
+            for record in doc_records:
+                assert record.payload['type'] == 'doc'
+                assert record.payload['start_line'] >= 1
+                assert record.payload['end_line'] >= record.payload['start_line']
+
+    def test_code_chunks_use_code_type_and_code_language(self) -> None:
+        with patch('core.indexer_.ollama_lib.Client') as ollama_client:
+            self._mock_ollama_embeddings(ollama_client)
+
+            collection_name = 'test_collection_code_chunks'
+            base_dir_path = '/app/tests/test_data/indexer_build_test'
+            python_file_path = f'{base_dir_path}/test_python.py'
+            file_list = {
+                python_file_path: int(os.path.getmtime(python_file_path)),
+            }
+
+            indexer = CodeIndexer(collection_name)
+            indexer.build_index(file_list)
+
+            qd_client = QdrantClient(url=QDRANT_URL)
+            records, _ = qd_client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                with_payload=True,
+            )
+
+            code_records = [
+                record for record in records
+                if record.payload['file_path'] == python_file_path
+            ]
+
+            assert len(code_records) > 0
+
+            for record in code_records:
+                assert record.payload['type'] == 'code'
+                assert record.payload['language'] == 'Python'
+                assert record.payload['start_line'] >= 1
+                assert record.payload['end_line'] >= record.payload['start_line']
+                assert record.payload['content'].strip() != ''

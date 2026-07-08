@@ -19,7 +19,20 @@ class LocalLLMClient:
         self._tools = tools
         self.client = ollama.Client(host=OLLAMA_BASE_URL)
 
-    def generate_text(self,client:'Client', prompt: str, max_tokens: int = 1024, temperature: float = 0.7, stream:bool=False, capture:bool=True):
+    def generate_system_text(self, prompt: str, system_prompt: str | None=None, max_tokens: int = 1024, temperature: float = 0.7) -> str:
+        kwargs = {
+            "model": self.model_name,
+            "prompt": prompt,
+            'options': {"temperature": temperature, "num_predict": max_tokens},
+        }
+        if system_prompt is not None:
+            kwargs['system'] = system_prompt
+
+        response = self.client.generate(**kwargs)
+
+        return response['response']
+
+    def generate_user_text(self, client: 'Client', prompt: str, system_prompt: str | None=None, max_tokens: int = 1024, temperature: float = 0.7, stream:bool=False, capture:bool=True):
         """
         Generates a text response from the llm model and can capture the output or send it
         directly to the client.
@@ -37,6 +50,8 @@ class LocalLLMClient:
                 'options':{"temperature": temperature, "num_predict": max_tokens},
                 'stream':stream
             }
+            if system_prompt is not None:
+                kwargs['system'] = system_prompt
 
             response_chunk = self.client.generate(**kwargs)
             content =''

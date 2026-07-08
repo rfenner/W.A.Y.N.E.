@@ -120,14 +120,14 @@ INSTRUCTION: {instruction}
 Return the complete modified file:"""
 
         # Generate with LLM
-        modified = self.llm.generate_text(prompt, max_tokens=4096, temperature=0.3)
+        modified = self.llm.generate_user_text(prompt, max_tokens=4096, temperature=0.3)
         
         # Clean up response
         modified = self._clean_llm_output(modified, original)
         
         # Generate 1-line summary
         summary_prompt = f"Summarize this code change in ONE short sentence (max 10 words):\nInstruction: {instruction}"
-        change_summary = self.llm.generate_text(summary_prompt, max_tokens=50, temperature=0.3)
+        change_summary = self.llm.generate_user_text(summary_prompt, max_tokens=50, temperature=0.3)
         change_summary = change_summary.strip().split('\n')[0][:100]
         
         return original, modified, change_summary

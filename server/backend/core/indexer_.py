@@ -2,12 +2,11 @@ import logging
 import os
 from pathlib import Path
 from typing import List, Dict, Any
-from dataclasses import dataclass
+import uuid
 
 import ollama as ollama_lib
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct, VectorParams, Distance, SparseVectorParams, Modifier
-import uuid
 
 from config import (
     QDRANT_URL, SPARSE_VECTOR_NAME,
@@ -15,6 +14,7 @@ from config import (
 )
 
 from core.reranker import Reranker
+from core.chunking import FileChunker, CodeChunk, ChunkType
 
 CODE_EXTENSIONS = {
     ".py": "Python",
@@ -40,7 +40,7 @@ CODE_EXTENSIONS = {
     ".m": "Objective-C",
     ".mm": "Objective-C++",
     ".sh": "Shell",
-    ".tf":'Terraform',
+    ".tf": 'Terraform',
     ".bash": "Shell",
     ".zsh": "Shell",
     ".fish": "Shell",
@@ -64,36 +64,18 @@ CODE_EXTENSIONS = {
     ".pl": "Perl",
 }
 
-@dataclass
-class CodeChunk:
-    file_path: str
-    language: str
-    start_line: int
-    end_line: int
-    content: str
-    type: str = "code"
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "file_path": self.file_path,
-            "language": self.language,
-            "start_line": self.start_line,
-            "end_line": self.end_line,
-            "content": self.content,
-            "type": self.type,
-        }
-
 
 class CodeIndexer:
     """
     Indexes code files into the specified collection
     """
-    def __init__(self, collection:str):
+    def __init__(self, collection: str):
         self.ollama = ollama_lib.Client(host=OLLAMA_BASE_URL)
         self.qdrant = QdrantClient(url=QDRANT_URL, timeout=60)
         self.reranker = Reranker.get_or_create_reranker('default')
+        self.chunker = FileChunker()
         self.collection = collection
-        self._files_cache: dict[str,dict] = {}
+        self._files_cache: dict[str, dict] = {}
 
         self._ensure_collection()
         self._build_files_cache()
@@ -131,9 +113,7 @@ class CodeIndexer:
             modified = int(point.payload.get("modified", '0'))
             if fp is not None and fp not in seen:
                 seen.add(fp)
-                self._files_cache[fp]= {"path": fp, "language": lang, 'modified': modified}
-
-
+                self._files_cache[fp] = {"path": fp, "language": lang, 'modified': modified}
 
     def _get_language(self, file):
         p_file = Path(file)
@@ -142,10 +122,7 @@ class CodeIndexer:
             return "Unknown"
         return CODE_EXTENSIONS[ext]
 
-    def build_index(self, files_list:dict[str,int]):
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-
+    def build_index(self, files_list: dict[str, int]):
         points = []
         file_cache = {}
 
@@ -163,25 +140,22 @@ class CodeIndexer:
             try:
                 if os.path.getsize(file) > 200_000:
                     continue
-            except:
+            except OSError:
                 continue
 
-            with open(file, "r") as f:
+            with open(file, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             if content == "":
                 continue
 
-            text_chunks = splitter.split_text(content)
-            lines = content.split("\n")
-            lines_per_chunk = max(1, len(lines) // max(len(text_chunks), 1))
-            for i, chunk_text in enumerate(text_chunks):
-                start = i * lines_per_chunk
-                end = start + lines_per_chunk
+            chunk_type, typed_chunks = self.chunker.chunk_file(file, content, lang)
+
+            for chunk_text, start, end in typed_chunks:
                 points.append(PointStruct(
-                  id=str(uuid.uuid4()),
+                    id=str(uuid.uuid4()),
                     vector={
-                        "dense":self._embed(chunk_text),
+                        "dense": self._embed(chunk_text),
                         SPARSE_VECTOR_NAME: models.Document(text=chunk_text, model="Qdrant/bm25")
                     },
                     payload={
@@ -190,7 +164,7 @@ class CodeIndexer:
                         "start_line": start,
                         "end_line": end,
                         "content": chunk_text,
-                        "type": 'code',
+                        "type": chunk_type.value,
                         "modified": modified,
                     }
                 ))
@@ -216,12 +190,12 @@ class CodeIndexer:
                 models.Prefetch(
                     query=models.Document(text=query, model="Qdrant/bm25"),
                     using=SPARSE_VECTOR_NAME,
-                    limit=TOP_K_RETRIEVAL
+                    limit=50
                 ),
             ],
             query=models.FusionQuery(fusion=models.Fusion.RRF),
             limit=TOP_K_RETRIEVAL,
-            with_payload=True
+            with_payload=models.PayloadSelector(includes=['path', 'start_line', 'end_line', 'content', 'language']),
         )
 
         candidates = [
@@ -242,7 +216,7 @@ class CodeIndexer:
 
     def get_architecture_summary(self) -> str:
         by_lang: Dict[str, List[str]] = {}
-        for f, i in self._files_cache:
+        for f, i in self._files_cache.items():
             lang = i.get("language", "unknown")
             by_lang.setdefault(lang, []).append(f)
         lines = [f"Repository has {len(self._files_cache)} indexed files:\n"]

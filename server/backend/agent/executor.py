@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from core.user import User
 
 from tools import code_search, file_io, diff_writer
-from tools.github_helper import clone_github_repo
+#from tools.github_cloner import clone_github_repo
 from core.indexer_ import CodeIndexer
 from llm.local_llm_client import LocalLLMClient
 from core.ingestion import IngestionPipeline
@@ -44,7 +44,7 @@ class Executor:
     
     def _github_clone_tool(self, repo_url: str, dest_path: str, timeout: int = 120) -> Dict[str, Any]:
         """Clone a GitHub repo."""
-        return clone_github_repo(repo_url, dest_path, timeout)
+        #return clone_github_repo(repo_url, dest_path, timeout)
     
     def _github_analyze_tool(self, repo_path: str, query: str) -> str:
         """

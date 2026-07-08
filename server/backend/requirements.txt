@@ -16,3 +16,5 @@ torch==2.11.0
 uvicorn==0.42.0
 pathspec==1.0.4
 watchdog==6.0.0
+langchain-community
+tree-sitter-language-pack

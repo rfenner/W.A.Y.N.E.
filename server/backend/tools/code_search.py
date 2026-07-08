@@ -17,7 +17,7 @@ class CodeSearchToolModel(BaseModel):
     """
     repo_name:str = Field(description="The Repositories Name")
     query:str = Field(description="The query to search for in the code")
-    is_reg_ex:bool = Field(description="Whether or not the query is regular expression pattern")
+    is_reg_ex:bool = Field(description="Whether or not the query is regular expression pattern, if the query doesn't contain a regular expression then default to false")
 
 class CodeSearchTool(AgentTool):
     """

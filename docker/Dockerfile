@@ -6,10 +6,10 @@ COPY ./server/frontend/ ./
 
 RUN npm install && npm run build
 
-RUN pip install --no-cache-dir --upgrade pydevd-pycharm==${PYDEVD_VER}
-
 FROM python:3.13-alpine as prod
 COPY ./server/backend/ ./backend/
+
+RUN apt-get update &&  apt-get -y install git && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade -r ./server/requirments.txt
 

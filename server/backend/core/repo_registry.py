@@ -6,10 +6,12 @@ absolute path. This ID is used to create isolated Qdrant collections
 so that multiple repos never pollute each other's vector stores.
 """
 import asyncio
+import difflib
 import logging
 import os
 from typing import TYPE_CHECKING
 
+from core.agent_tool import AgentToolResponse
 from core.connection_manager import WSConnectionManager
 from core.repository import Repository
 
@@ -28,7 +30,7 @@ class RepositoryRegistry:
     _indexing = {}
 
     @classmethod
-    def load_repositories(cls, repositories_path:str):
+    def load_repositories(cls, repositories_path: str):
         """
         Scans the repertoires directory and loads any it finds.
         The loading is done asynchronously.
@@ -53,8 +55,29 @@ class RepositoryRegistry:
         """
         checks the passed name and returns the repository if it is one
         """
-        if repo_name in cls._repositories:
+
+        # no repos return none then
+        if not cls._repositories:
+            return None
+
+        # see fi we get an exact match first
+        if not repo_name in cls._repositories:
+            # try and find a close match
+            matches = difflib.get_close_matches(repo_name.lower(), cls._repositories.keys(), n - 1, cutoff=0.6)
+            if matches:
+                repo_name = cls._repositories[matches[0]]
+            else:
+                # handle word splits
+                split_name = set(repo_name.lower().replace('_', '-').split('-'))
+                for name in cls._repositories.keys():
+                    valid_tokens = set(name.lower().replace('_', '-').split('-'))
+                    if split_name.intersection(valid_tokens):
+                        repo_name = cls._repositories[name]
+                        break
+
+        if repo_name in cls._repositories and not repo_name in cls._indexing:
             return cls._repositories[repo_name]
+
         return None
 
     @classmethod
@@ -133,3 +156,13 @@ class RepositoryRegistry:
             response += "I'm still indexing some repositories so they are not listed.\nI'll let you know when their done."
 
         client.send_output(response)
+
+    @classmethod
+    def get_repositories(cls)->list[Repository]:
+        repos = []
+        for repo in cls._repositories.values():
+            # skip indexing repositories
+            if repo in cls._indexing:
+                continue
+            repos.append(repo)
+        return repos

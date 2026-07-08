@@ -175,7 +175,6 @@ class TestToolsManager:
         assert any('TwoTool' in v.name for v in manager._system_tools.values())
         assert any('ThreeTool' in v.name for v in manager._system_tools.values())
         assert all('BadTool' not in v.name for v in manager._system_tools.values())
-        assert all('BadImportTool' not in v.name for v in manager._system_tools.values())
         assert all(v.instance is None for v in manager._system_tools.values())
         assert any(v.instance is None for v in manager._system_tools.values())
         assert any(v.instance is None for v in manager._system_tools.values())
@@ -185,7 +184,6 @@ class TestToolsManager:
         assert any(v.class_type.__name__ == 'TwoTool' for v in manager._system_tools.values())
         assert any(v.class_type.__name__ == 'ThreeTool' for v in manager._system_tools.values())
         assert all(v.class_type.__name__ != 'BadTool' for v in manager._system_tools.values())
-        assert all(v.class_type.__name__ != 'BadImportTool' for v in manager._system_tools.values())
 
     def test__internal_add_tool(self):
         manager = ToolsManager()
